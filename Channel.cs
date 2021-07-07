@@ -51,6 +51,7 @@ namespace Lily
         private int _haltQueue = 0;
         private bool _queueRunning = false;
         private ChannelControl _control;
+        private Timer _timer;
 
         public Channel(string url, string token)
         {
@@ -111,6 +112,7 @@ namespace Lily
 
                 Console.WriteLine("Be patient, I'm reaching out to Discord again...");
 
+                _timer?.Stop();
                 _ws = new WebSocket("wss://gateway.discord.gg/?v=6&encoding=json");
                 ConnectWebSocket();
             };
@@ -236,7 +238,7 @@ namespace Lily
             {
                 case 10:
                     var heartbeatInterval = payload["d"].Value<int>("heartbeat_interval");
-                    var interval = Heartbeat(heartbeatInterval);
+                    _timer = Heartbeat(heartbeatInterval);
                 break;
             }
 
@@ -308,8 +310,15 @@ namespace Lily
             var timer = new Timer(milliseconds);
             timer.Elapsed += (sender, args) =>
             {
-                Console.Beep();
-                _ws.Send(JsonConvert.SerializeObject(new { op = 1, d = (string)null }));
+                try
+                {
+                    Console.Beep();
+                    _ws.Send(JsonConvert.SerializeObject(new { op = 1, d = (string)null }));
+                }
+                catch (HttpRequestException e)
+                {
+                    Console.Error.WriteLine($"[Debug]: Network error: {e}");
+                }
             };
             timer.AutoReset = true;
             timer.Enabled = true;
