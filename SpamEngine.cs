@@ -109,6 +109,7 @@ namespace Lily
                     foreach (var strategy in _strategies)
                     {
                         _promises.Add(strategy.Run(_channel, _cts.Token));
+                        Console.Error.WriteLine($"[Debug]: Added {strategy.Command}");
                     }
                 }
                 var runTime = _rand.Next(0, run);

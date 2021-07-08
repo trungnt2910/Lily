@@ -19,14 +19,12 @@ namespace Lily.Strategies
             //no-op
         }
 
-        protected override async Task RunInternal(Channel channel)
+        protected override async Task RunInternal(ChannelControl control)
         {
             Console.Error.WriteLine("[Debug]: Beg wating for control...");
-            var control = await channel.RequestControlAsync();
             Console.Error.WriteLine("[Debug]: Begging...");
             await control.SendMessageAsync(Command);
             await Task.WhenAny(Task.Delay(60000), control.WaitForResponseAsync("Dank Memer"));
-            control.Release();
         }
     }
 }

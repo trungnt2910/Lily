@@ -10,15 +10,15 @@ namespace Lily
 		private Channel _channel;
 		private TaskCompletionSource<object> _tcs;
 		private Dictionary<string, TaskCompletionSource<JToken>> _waitingMessages = new Dictionary<string, TaskCompletionSource<JToken>>();
+		private bool _valid = true;
 
 		internal ChannelControl(Channel channel)
 		{
 			_channel = channel;
 			_tcs = new TaskCompletionSource<object>();
-			_tcs.SetResult(null);
-		}
+        }
 
-		internal void Reset()
+		internal void Invalidate()
 		{
 			_tcs = new TaskCompletionSource<object>();
 			_waitingMessages = new Dictionary<string, TaskCompletionSource<JToken>>();
@@ -32,10 +32,16 @@ namespace Lily
 				_messageUpdated -= (EventHandler<MessageReceiveEventArgs>)d;
 			}
 			_messageUpdatedDelegates.Clear();
+			_valid = false;
 		}
 
 		internal async Task Receive(string id, JToken message)
 		{
+			if (!_valid)
+            {
+				return;
+            }
+
 			var deferralTcs = new TaskCompletionSource<object>();
 			var deferral = new Deferral(deferralTcs);
 			_messageReceived?.Invoke(this, new MessageReceiveEventArgs { Message = message, Deferral = deferral } );
@@ -54,6 +60,11 @@ namespace Lily
 
 		internal void Update(string id, JToken message)
 		{
+			if (!_valid)
+            {
+				return;
+            }
+
 			var deferral = new Deferral(new TaskCompletionSource<object>());
 			_messageUpdated?.Invoke(this, new MessageReceiveEventArgs { Message = message, Deferral = deferral } );
 		}
@@ -92,6 +103,10 @@ namespace Lily
 
 		public void Release()
 		{
+			if (!_valid)
+            {
+				return;
+            }
 			_tcs.SetResult(null);
 		}
 
@@ -102,12 +117,20 @@ namespace Lily
 
 		public async Task<string> SendMessageAsync(string content)
 		{
+			if (!_valid)
+            {
+				throw new InvalidOperationException("This ChannelControl is invalid.");
+			}
 			return await _channel.SendMessageRawAsync(content, true);
 		}
 
 		// Waits for a repsonse from a user with the specified name.
 		public async Task<JToken> WaitForResponseAsync(string username)
 		{
+			if (!_valid)
+            {
+				throw new InvalidOperationException("This ChannelControl is invalid.");
+            }
 			var tcs = new TaskCompletionSource<JToken>();
 			lock (_waitingMessages)
 			{

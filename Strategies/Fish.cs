@@ -63,6 +63,23 @@ namespace Lily.Strategies
                     _suggested = result.Results;
                     _spamTask = SpamSuggestedAsync();
                 }
+                else if (content.Contains("re-type"))
+                {
+                    // The phrase is actually already typed, we just need to feed 
+                    // it to machine learning.
+                    try
+                    {
+                        var sentence = Regex.Match(content, "Type `([^`]*)`").Groups[1].Value;
+                        sentence = Regex.Replace(sentence, @"[^\u0000-\u007F]+", string.Empty);
+                        _learning.FeedSentenceAnswer("fish", sentence, "");
+                        _learning.FeedSentence("fish", sentence);
+                    }
+                    catch (Exception e)
+                    {
+                        // This error is not critical.
+                        Console.Error.WriteLine($"[Debug]: {e.GetType()} while trying to parse sentence.");
+                    }
+                }
             }
             
             if (content.Contains("You cast out your line and brought back"))
@@ -118,9 +135,9 @@ namespace Lily.Strategies
             }
         }
 
-        protected override async Task RunInternal(Channel channel)
+        protected override async Task RunInternal(ChannelControl control)
         {
-            _control = await channel.RequestControlAsync();
+            _control = control;
             _control.MessageReceived += OnMessageReceive;
             _tcs = new TaskCompletionSource<object>();
             await _control.SendMessageAsync(Command);
@@ -129,7 +146,6 @@ namespace Lily.Strategies
             {
                 await _spamTask;
             }
-            _control.Release();
             _control = null;
         }
 

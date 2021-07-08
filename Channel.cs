@@ -42,7 +42,7 @@ namespace Lily
 
         public event EventHandler<MessageReceiveEventArgs> MessageReceive;
 
-        private WebSocket _ws = new WebSocket("wss://gateway.discord.gg/?v=6&encoding=json");
+        private WebSocket _ws;
         private HttpClient _client = new HttpClient();
         private Dictionary<string, TaskCompletionSource<string>> _waitingMessages = new Dictionary<string, TaskCompletionSource<string>>();
         private BigInteger _nonce;
@@ -66,12 +66,22 @@ namespace Lily
             rand.NextBytes(bytes);
             _nonce += new BigInteger(bytes);
             _control = new ChannelControl(this);
+            _control.Release();
 
-            ConnectWebSocket();
+            ++_haltQueue;
+            SetupWebSocketAsync().ContinueWith((t) => 
+            {
+                Console.Error.WriteLine("[Debug]: WebSocket connected. Unhalting queue...");
+                _ = RunControlRequestQueue();
+                --_haltQueue;
+            });
         }
 
-        private void ConnectWebSocket()
+        private async Task SetupWebSocketAsync()
         {
+            _ws = new WebSocket("wss://gateway.discord.gg/?v=6&encoding=json");
+            TaskCompletionSource<object> _tcs = new TaskCompletionSource<object>();
+
             // Setup WebSocket
             _ws.OnOpen += (sender, args) =>
             {
@@ -93,31 +103,41 @@ namespace Lily
                 };
                 var data = JsonConvert.SerializeObject(payload);
                 _ws.Send(data);
+                _tcs.SetResult(null);
             };
 
             _ws.OnMessage += MessageReceived;
 
-            _ws.OnError += (sender, args) => 
-            {
-                if (args.Exception != null)
-                {
-                    Console.WriteLine("Oops, I've lost touch with Discord!");
-                    Console.WriteLine($"Here is the error, if you need it: ");
-                    Console.WriteLine($"{args.Exception.GetType()}: {args.Exception.Message}");
-                }
-                else
-                {
-                    Console.WriteLine("Oops, I've lost touch with Discord!");
-                }
-
-                Console.WriteLine("Be patient, I'm reaching out to Discord again...");
-
-                _timer?.Stop();
-                _ws = new WebSocket("wss://gateway.discord.gg/?v=6&encoding=json");
-                ConnectWebSocket();
-            };
+            _ws.OnError += WebSocket_OnError;
 
             _ws.Connect();
+            await _tcs.Task;
+        }
+
+        public async void WebSocket_OnError(object sender, ErrorEventArgs args)
+        {
+            ++_haltQueue;
+            if (args?.Exception != null)
+            {
+                Console.WriteLine("Oops, I've lost touch with Discord!");
+                Console.WriteLine($"Here is the error, if you need it: ");
+                Console.WriteLine($"{args.Exception.GetType()}: {args.Exception.Message}");
+            }
+            else
+            {
+                Console.WriteLine("Oops, I've lost touch with Discord!");
+            }
+
+            Console.WriteLine("Be patient, I'm reaching out to Discord again...");
+
+            _timer?.Stop();
+            _ws.OnMessage -= MessageReceived;
+            _ws.OnError -= WebSocket_OnError;
+
+            await SetupWebSocketAsync();
+            --_haltQueue;
+            Console.Error.WriteLine("[Debug]: Control request queue resumed.");
+            _ = RunControlRequestQueue();
         }
 
         /// <summary>
@@ -199,9 +219,13 @@ namespace Lily
                     Console.Error.WriteLine("[Debug]: Dequeued.");
                     await _control.Wait();
                     Console.Error.WriteLine("[Debug]: Other owner released.");
-                    _control.Reset();
+                    _control.Invalidate();
                     Console.Error.WriteLine("[Debug]: Controller reset.");
-                    tcs.SetResult(_control);
+                    lock (_control)
+                    {
+                        _control = new ChannelControl(this);
+                        tcs.SetResult(_control);
+                    }
                     Console.Error.WriteLine("[Debug]: Done.");
                 }
             }
@@ -210,21 +234,28 @@ namespace Lily
 
         private async Task FakeTyping()
         {
-            var request = new HttpRequestMessage();
-            request.RequestUri = new Uri($"https://discord.com/api/v9/channels/{ChannelId}/typing");
-            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("*/*"));
-            request.Headers.AcceptLanguage.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("en-US"));
-            request.Headers.Authorization = System.Net.Http.Headers.AuthenticationHeaderValue.Parse(Token);
-            request.Headers.Add("sec-ch-ua", "\" Not;A Brand\";v=\"99\", \"Microsoft Edge\";v=\"91\", \"Chromium\";v=\"91\"");
-            request.Headers.Add("sec-ch-ua-mobile", "?0");
-            request.Headers.Add("sec-fetch-dest", "empty");
-            request.Headers.Add("sec-fetch-mode", "cors");
-            request.Headers.Add("sec-fetch-site", "same-origin");
-            request.Headers.Add("x-super-properties", "eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzkxLjAuNDQ3Mi4xMTQgU2FmYXJpLzUzNy4zNiBFZGcvOTEuMC44NjQuNTkiLCJicm93c2VyX3ZlcnNpb24iOiI5MS4wLjQ0NzIuMTE0Iiwib3NfdmVyc2lvbiI6IjEwIiwicmVmZXJyZXIiOiJodHRwczovL2Rpc2NvcmQuY29tLyIsInJlZmVycmluZ19kb21haW4iOiJkaXNjb3JkLmNvbSIsInJlZmVycmVyX2N1cnJlbnQiOiIiLCJyZWZlcnJpbmdfZG9tYWluX2N1cnJlbnQiOiIiLCJyZWxlYXNlX2NoYW5uZWwiOiJzdGFibGUiLCJjbGllbnRfYnVpbGRfbnVtYmVyIjo4OTEyOSwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=");
-            request.Headers.Referrer = new Uri($"https://discord.com/channels/{ServerId}/{ChannelId}");
-            request.Method = HttpMethod.Post;
+            try
+            {
+                var request = new HttpRequestMessage();
+                request.RequestUri = new Uri($"https://discord.com/api/v9/channels/{ChannelId}/typing");
+                request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("*/*"));
+                request.Headers.AcceptLanguage.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("en-US"));
+                request.Headers.Authorization = System.Net.Http.Headers.AuthenticationHeaderValue.Parse(Token);
+                request.Headers.Add("sec-ch-ua", "\" Not;A Brand\";v=\"99\", \"Microsoft Edge\";v=\"91\", \"Chromium\";v=\"91\"");
+                request.Headers.Add("sec-ch-ua-mobile", "?0");
+                request.Headers.Add("sec-fetch-dest", "empty");
+                request.Headers.Add("sec-fetch-mode", "cors");
+                request.Headers.Add("sec-fetch-site", "same-origin");
+                request.Headers.Add("x-super-properties", "eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzkxLjAuNDQ3Mi4xMTQgU2FmYXJpLzUzNy4zNiBFZGcvOTEuMC44NjQuNTkiLCJicm93c2VyX3ZlcnNpb24iOiI5MS4wLjQ0NzIuMTE0Iiwib3NfdmVyc2lvbiI6IjEwIiwicmVmZXJyZXIiOiJodHRwczovL2Rpc2NvcmQuY29tLyIsInJlZmVycmluZ19kb21haW4iOiJkaXNjb3JkLmNvbSIsInJlZmVycmVyX2N1cnJlbnQiOiIiLCJyZWZlcnJpbmdfZG9tYWluX2N1cnJlbnQiOiIiLCJyZWxlYXNlX2NoYW5uZWwiOiJzdGFibGUiLCJjbGllbnRfYnVpbGRfbnVtYmVyIjo4OTEyOSwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=");
+                request.Headers.Referrer = new Uri($"https://discord.com/channels/{ServerId}/{ChannelId}");
+                request.Method = HttpMethod.Post;
 
-            var response = await _client.SendAsync(request);
+                var response = await _client.SendAsync(request);
+            }
+            catch
+            {
+                Console.Error.WriteLine("[Debug]: Cannot fake typing. This might make Dank Memer, and also Discord, detect self bots.");
+            }
         }
 
         private async void MessageReceived(object sender, MessageEventArgs e)
@@ -238,6 +269,7 @@ namespace Lily
             {
                 case 10:
                     var heartbeatInterval = payload["d"].Value<int>("heartbeat_interval");
+                    Console.Error.WriteLine($"[Debug]: Channel connected to WebSocket, pinging every {heartbeatInterval} ms");
                     _timer = Heartbeat(heartbeatInterval);
                 break;
             }
@@ -263,8 +295,11 @@ namespace Lily
                     --_haltQueue;
                     _ = RunControlRequestQueue();
                     // Tasks will only know messages AFTER the events processer.
-                    _ = _control.Receive(id, trueMessage);
-                    //Console.WriteLine($"{author}: {content}");
+                    lock (_control)
+                    {
+                         _ = _control.Receive(id, trueMessage);
+                    }
+                        //Console.WriteLine($"{author}: {content}");
                 }            
                 break;
     			case "MESSAGE_UPDATE":
@@ -273,8 +308,11 @@ namespace Lily
                     var channelId = payload["d"].Value<string>("channel_id");
                     if (channelId != ChannelId) break;
                     var trueMessage = (await FetchMessageAsync(id))[0];
-                    _control.Update(id, trueMessage);
-				}
+                    lock (_control)
+                    {
+                        _control.Update(id, trueMessage);
+                    }
+                }
 				break;
             }
         }
@@ -315,9 +353,9 @@ namespace Lily
                     Console.Beep();
                     _ws.Send(JsonConvert.SerializeObject(new { op = 1, d = (string)null }));
                 }
-                catch (HttpRequestException e)
+                catch (InvalidOperationException)
                 {
-                    Console.Error.WriteLine($"[Debug]: Network error: {e}");
+                    WebSocket_OnError(null, null);
                 }
             };
             timer.AutoReset = true;

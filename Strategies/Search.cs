@@ -47,15 +47,14 @@ namespace Lily.Strategies
             }
         }
 
-        protected override async Task RunInternal(Channel channel)
+        protected override async Task RunInternal(ChannelControl control)
         {
-            _control = await channel.RequestControlAsync();
+            _control = control;
             _control.MessageReceived += OnMessageReceive;
             _tcs = new TaskCompletionSource<object>();
             Console.Error.WriteLine("[Debug]: Searching...");
             await _control.SendMessageAsync(Command);
             await Task.WhenAny(Task.Delay(60000), _tcs.Task);
-            _control.Release();
         }
     }
 }

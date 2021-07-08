@@ -108,6 +108,23 @@ namespace Lily.Strategies
 			}
 #endregion
 
+			// To prevent a deadlock...
+			// The job's response, "The word was `bullcrap` ya looser"
+			// might be mistaken as a simple response and prompt 
+			// the word spammer thread to continue.
+			if (content.Contains("The word was"))
+            {
+				try
+                {
+					_cts.Cancel();
+				}
+				catch
+                {
+					// Nothing to worry, if it wasn't the answer.
+                }
+			}
+
+
 			if (content.Contains("You need to wait"))
 			{
 				Console.Error.WriteLine("[Debug]: Not time to work yet!");
@@ -204,9 +221,9 @@ namespace Lily.Strategies
 			Console.WriteLine($"[Debug]: Done switching...");
 		}
 
-		protected override async Task RunInternal(Channel channel)
+		protected override async Task RunInternal(ChannelControl control)
 		{
-			_control = await channel.RequestControlAsync();
+			_control = control;
 			_tcs = new TaskCompletionSource<object>();
 			_colorMatchTcs = new TaskCompletionSource<string>();
 			_cts = new CancellationTokenSource();
@@ -218,7 +235,6 @@ namespace Lily.Strategies
 			Console.Error.WriteLine("[Debug]: Work done, releasing control.");
 			await _workTask;
 			Console.Error.WriteLine("[Debug]: Work task complete.");
-			_control.Release();
 		}
 
 		private async Task PlaySoccerAsync()
