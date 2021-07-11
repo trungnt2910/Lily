@@ -10,14 +10,14 @@ namespace Lily
 		public static void WriteLine(object o)
 		{
 			var time = DateTime.Now;
-			Console.Error.WriteLine($"[Debug]: {time.ToString("t")}: {o}");
+			Console.Error.WriteLine($"[Debug]: {time.ToString("T")}: {o}");
 		}
 
 		public static void FileWriteLine(object o)
 		{
 			var time = DateTime.Now;
-			Console.Error.WriteLine($"[Debug]: {time.ToString("t")}: {o}");
-			FileWriter.WriteLine($"{time.ToString("t")}: {o}");
+			Console.Error.WriteLine($"[Debug]: {time.ToString("T")}: {o}");
+			FileWriter.WriteLine($"{time.ToString("T")}: {o}");
 			FileWriter.Flush();
 		}
 	}
