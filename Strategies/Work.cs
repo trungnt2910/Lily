@@ -46,7 +46,7 @@ namespace Lily.Strategies
 				{
 					Console.Error.WriteLine("[Debug]: Failed working attempt");
 					_cts.Cancel();
-					_tcs.SetResult(null);
+					_tcs.TrySetResult(null);
 					if (_mode == "Hangman")
 					{
 						var answer = Regex.Match(description, "`([^`]*)`").Groups[1].Value;
@@ -70,7 +70,7 @@ namespace Lily.Strategies
 						_ = _learning.FeedScrambledWordAnswer(_context, _currentQuestion, _currentAnswer);
 					}
 					_cts.Cancel();
-					_tcs.SetResult(null);
+					_tcs.TrySetResult(null);
 				}
 			}
 
@@ -80,7 +80,7 @@ namespace Lily.Strategies
 			{
 				Console.Error.WriteLine("[Debug]: Failed working attempt");
 				_cts.Cancel();
-				_tcs.SetResult(null);
+				_tcs.TrySetResult(null);
 				if (_mode == "Hangman")
 				{
 					var answer = Regex.Match(content, "`([^`]*)`").Groups[1].Value;
@@ -104,7 +104,7 @@ namespace Lily.Strategies
 					_ = _learning.FeedScrambledWordAnswer(_context, _currentQuestion, _currentAnswer);
 				}
 				_cts.Cancel();
-				_tcs.SetResult(null);
+				_tcs.TrySetResult(null);
 			}
 #endregion
 
@@ -129,7 +129,7 @@ namespace Lily.Strategies
 			{
 				Console.Error.WriteLine("[Debug]: Not time to work yet!");
 				_workTask = Task.CompletedTask;
-				_tcs.SetResult(null);
+				_tcs.TrySetResult(null);
 			}
 
 			// Work task.

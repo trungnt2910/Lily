@@ -93,7 +93,7 @@ namespace Lily.Strategies
                     }
                 }
                 _isInGame = false;
-                _tcs.SetResult(null);
+                _tcs.TrySetResult(null);
             }
 
             if (content.Contains("The word was"))
@@ -117,13 +117,13 @@ namespace Lily.Strategies
             {
                 Console.Error.WriteLine("[Debug]: Failed digging attempt.");
                 _isInGame = false;
-                _tcs.SetResult(null);
+                _tcs.TrySetResult(null);
             }
 
             if (content.Contains("LMAO you found nothing in the ground."))
             {
                 Console.Error.WriteLine("[Debug]: Empty digging attempt.");
-                _tcs.SetResult(null);
+                _tcs.TrySetResult(null);
             }
         }
 

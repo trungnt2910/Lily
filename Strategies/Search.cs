@@ -36,13 +36,13 @@ namespace Lily.Strategies
                         if (_safeSearchLocations.Contains(location))
                         {
                             await _control.SendMessageAsync(location);
-                            _tcs.SetResult(null);
+                            _tcs.TrySetResult(null);
                             return;
                         }
                     }
 
                     await _control.SendMessageAsync("Dude it ain't safe here.");
-                    _tcs.SetResult(null);
+                    _tcs.TrySetResult(null);
                 }
             }
         }

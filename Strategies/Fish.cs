@@ -93,7 +93,7 @@ namespace Lily.Strategies
                     }
                 }
                 _isInGame = false;
-                _tcs.SetResult(null);
+                _tcs.TrySetResult(null);
             }
 
             if (content.Contains("The word was"))
@@ -117,13 +117,13 @@ namespace Lily.Strategies
             {
                 Console.Error.WriteLine("[Debug]: Failed fishing attempt.");
                 _isInGame = false;
-                _tcs.SetResult(null);
+                _tcs.TrySetResult(null);
             }
 
             if (content.Contains("LMAO you found nothing. NICE!"))
             {
                 Console.Error.WriteLine("[Debug]: Empty fishing attempt.");
-                _tcs.SetResult(null);
+                _tcs.TrySetResult(null);
             }
         }
 

@@ -34,12 +34,12 @@ namespace Lily.Strategies
                         if (title.Contains("winning"))
                         {
                             Console.Error.WriteLine("[Debug]: Won high-low game.");
-                            _tcs.SetResult(null);
+                            _tcs.TrySetResult(null);
                         }
                         else if (title.Contains("losing"))
                         {
                             Console.Error.WriteLine("[Debug]: Losing high-low game.");
-                            _tcs.SetResult(null);
+                            _tcs.TrySetResult(null);
                         }
                         else
                         {
