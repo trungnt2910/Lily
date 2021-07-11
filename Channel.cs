@@ -52,6 +52,7 @@ namespace Lily
         private bool _queueRunning = false;
         private ChannelControl _control;
         private Timer _timer;
+        private Random _rand = new Random();
 
         public Channel(string url, string token)
         {
@@ -112,6 +113,32 @@ namespace Lily
 
             _ws.Connect();
             await _tcs.Task;
+
+            await PingAsync();
+        }
+
+        public async Task PingAsync()
+        {
+            var tcs = new TaskCompletionSource<object>();
+            var testMessage = $"Hi! Lily's here. Here's my number: {_rand.Next()}";
+            
+            MessageReceive += HandleMessage;
+            // Pings the server with a message, to check the WebSocket's status.
+            var id = await SendMessageRawAsync(testMessage, true);
+
+            Debug.WriteLine("Sent test message");
+
+            void HandleMessage(object sender, MessageReceiveEventArgs args)
+            {
+                if (args.Message.Value<string>("content") == testMessage)
+                {
+                    Debug.WriteLine("Received test message.");
+                    MessageReceive -= HandleMessage;
+                    tcs.SetResult(null);
+                }
+            }
+
+            await tcs.Task;
         }
 
         public async void WebSocket_OnError(object sender, ErrorEventArgs args)
