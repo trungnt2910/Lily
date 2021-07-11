@@ -51,6 +51,9 @@ namespace Lily
                 if (task == delayTask)
                 {
                     Console.Error.WriteLine($"[Debug]: {Command} failed to run in time.");
+                    
+                    await channel.PingAsync();
+
                     ++FailStreak;
                     if (FailStreak > MaxFailStreak)
                     {
