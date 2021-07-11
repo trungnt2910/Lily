@@ -35,7 +35,7 @@ namespace Lily
 			// _channel.MessageReceive += OnMessageReceive;
 		}
 
-		public void FeedSentence(string context, string content)
+		public async Task FeedSentence(string context, string content)
 		{
 			Console.WriteLine($"[Lily]: I'll memorize this sentence: {content}");
 			Console.WriteLine($"[Debug]: sentence: {content}");
@@ -51,7 +51,7 @@ namespace Lily
 					continue;
 				}
 				var realWord = string.Empty;
-				if (word[word.Length - 1] == '.')
+				if (".!?".Contains(word[word.Length - 1]))
 				{
 					realWord = word.Substring(0, word.Length - 1);
 				}
@@ -63,7 +63,7 @@ namespace Lily
 				Console.WriteLine($"[Debug]: Sending word {realWord} with context {context}");
 				var text = JsonConvert.SerializeObject(new {doc = new {word = realWord, category = "hangman_word_framgents", context = context}});
 				Console.WriteLine($"[Debug]: {text}");
-				_ = Feed(text);
+				await Feed(text);
 			}
 		}
 
@@ -77,7 +77,7 @@ namespace Lily
 			await _client.SendAsync(request);
 		}
 
-		public void FeedSentenceAnswer(string context, string sentence, string word)
+		public async Task FeedSentenceAnswer(string context, string sentence, string word)
 		{
 			Console.WriteLine($"[Lily]: I'll keep a note that the answer to: {sentence} is {word}");
 			var words = sentence.Split();
@@ -90,7 +90,7 @@ namespace Lily
 			}
 			var text = JsonConvert.SerializeObject(new {doc = new {question = sentence, answer = word, category = "hangman", context = context}});
 			Console.WriteLine($"[Debug]: {text}");
-			_ = Feed(text);
+			await Feed(text);
 		}
 
 		private string Sort(string str)
@@ -100,45 +100,27 @@ namespace Lily
 			return new string(arr);
 		}
 
-		public void FeedScrambledWordAnswer(string context, string scrambled, string unscrambled)
+		public async Task FeedScrambledWordAnswer(string context, string scrambled, string unscrambled)
 		{
 			Console.WriteLine($"[Lily]: I'll remember that {scrambled} is actually {unscrambled}, no need to look up my dictionary now.");
 			scrambled = Sort(scrambled);
 			var text = JsonConvert.SerializeObject(new {doc = new {question = scrambled, answer = unscrambled, category = "unscramble", context = context}});
 			Console.WriteLine($"[Debug]: {text}");
-			_ = Feed(text);
+			await Feed(text);
 		}
 
+		#region Sentence
         /// <summary>
         /// Queries the server for a find missing work challenge.
         /// </summary>
         /// <param name="context">The game context, such as fishing or working</param>
         /// <param name="content">The sentence, as a regular expression.</param>
         /// <returns></returns>		
-		public async Task<(IEnumerable<string> Results, bool IsFromCloud)> QuerySentenceAsync(string context, string content)
+		public async Task<IEnumerable<string>> QuerySentenceAsync(string context, string content)
 		{
-			Console.WriteLine($"[Lily]: Checking my notebooks, please wait.");
-			
-			var arr = await Query(JsonConvert.SerializeObject(new 
-			{
-				query = new 
-				{
-					question = new PrivateRegex(content), 
-					category = new PrivateRegex("hangman"), 
-					context = new PrivateRegex(context)
-				}
-			}));
-			if (arr.Count != 0)
-			{
-				return (arr
-						.Select(token => token.Value<string>("question"))
-						.Where(x => x != null)
-						.Select(x => Extract(x, content)), true);
-			}
-
-			Console.WriteLine($"[Lily]: This one's tough, I'll randomize a word for now.");
-			
-			return (FillRandom(content), false);
+			return 	(await QueryWholeSentenceAsync(context, content))
+					.Concat(await QueryFragmentsAsync(context, content))
+					.Concat(FillRandom(content));
 		}
 
 		private string Extract(string original, string regexed)
@@ -157,6 +139,8 @@ namespace Lily
 
 		public IEnumerable<string> FillRandom(string content)
 		{
+			Console.WriteLine($"[Lily]: This one's tough, I'll randomize a word for now.");
+
 			// This is more programmer friendly 
 			content = content.Replace("[a-zA-Z*]", "*");
 			var contents = content.Split();
@@ -175,7 +159,61 @@ namespace Lily
 			}
 		}
 
-		public async Task<(IEnumerable<string> Results, bool IsFromCloud)> QueryUnscrambleAsync(string context, string scrambled)
+		private async Task<IEnumerable<string>> QueryWholeSentenceAsync(string context, string content)
+		{
+			Console.WriteLine($"[Lily]: Checking my notebooks, please wait.");
+			
+			var arr = await Query(JsonConvert.SerializeObject(new 
+			{
+				query = new 
+				{
+					question = new PrivateRegex(content), 
+					category = new PrivateRegex("hangman"), 
+					context = new PrivateRegex(context)
+				}
+			}));
+
+			return arr
+					.Select(token => token.Value<string>("question"))
+					.Where(x => x != null)
+					.Select(x => Extract(x, content));
+		}
+
+		private async Task<IEnumerable<string>> QueryFragmentsAsync(string context, string content)
+		{
+			Console.WriteLine($"[Lily]: Checking my flashcards, please wait.");
+
+			var contents = content.Split();
+			content = contents.FirstOrDefault(str => str.Contains("["));
+			if ("!?.".Contains(content[content.Length - 1]))
+			{
+				content = content.Substring(0, content.Length - 1);
+			}
+			var arr = await Query(JsonConvert.SerializeObject(new 
+			{
+				query = new 
+				{
+					word = new PrivateRegex(content), 
+					category = new PrivateRegex("hangman_word_framgents"), 
+					context = new PrivateRegex(context)
+				}
+			}));
+			return arr.Select(token => token.Value<string>("answer")?.Trim())
+					  .Where(x => x != null);
+		}
+
+		#endregion
+
+		#region Scramble
+
+		public async Task<IEnumerable<string>> QueryUnscrambleAsync(string context, string scrambled)
+		{
+			return (await QueryKnownUnscrambleAsync(context, scrambled))
+					.Concat(await QueryThirdPartyUnscramblerAsync(scrambled))
+					.Concat(RandomUnscramble(scrambled));
+		}
+
+		private async Task<IEnumerable<string>> QueryKnownUnscrambleAsync(string context, string scrambled)
 		{
 			Console.WriteLine($"[Lily]: Checking my notebooks, please wait.");
 			
@@ -190,17 +228,18 @@ namespace Lily
 						context = new PrivateRegex(context)
 					}
 				}));
-				if (arr.Count != 0)
-				{
-					return (arr.Select(token => token.Value<string>("answer")).Where(x => x != null), true);
-				}
+
+				return arr.Select(token => token.Value<string>("answer")?.Trim()).Where(x => x != null);
 			}
 			catch (Exception e)
 			{
-				Console.Error.WriteLine($"[Debug]: {e.GetType()}: {e.Message}");
+				Console.Error.WriteLine($"[Debug]: QueryKnownUnscrambleAsync: {e.GetType()}: {e.Message}");
+				return new string[]{};				
 			}
+		}
 
-			// Must write the code here to use our async capabilities.
+		private async Task<IEnumerable<string>> QueryThirdPartyUnscramblerAsync(string scrambled)
+		{
 			Console.WriteLine($"[Lily]: I haven't got this, consulting my dictionary...");
 			var httpRequest = new HttpRequestMessage();
 			httpRequest.RequestUri = new Uri($"https://wordunscrambler.me/unscramble/{scrambled}");
@@ -209,19 +248,14 @@ namespace Lily
 			var words = Regex.Matches(text, "data-word=\"[^\"]*\"");
 			Console.Error.WriteLine($"[Debug]: {words.Count} words found.");
 
-			return (UnscrambleFallback(scrambled, words
-				.Select(match => match.Value)
-				.Select(word => word.Substring("data-word=\"".Length, word.Length - 1 - "data-word=\"".Length))
-				.Where(word => word.Length == scrambled.Length)), false);
+			return words
+					.Select(match => match.Value)
+					.Select(word => word.Substring("data-word=\"".Length, word.Length - 1 - "data-word=\"".Length))
+					.Where(word => word.Length == scrambled.Length);
 		}
 
-		public IEnumerable<string> UnscrambleFallback(string scrambled, IEnumerable<string> suggestions)
+		private IEnumerable<string> RandomUnscramble(string scrambled)
 		{
-			foreach (var suggestion in suggestions)
-			{
-				yield return suggestion;
-			}
-
 			Console.WriteLine($"[Lily]: This one's tough, I'll randomize a word for now.");
 			
 			var arr = scrambled.ToCharArray();
@@ -232,6 +266,8 @@ namespace Lily
 				yield return new string(arr);
 			}
 		}
+
+		#endregion
 
 		private async Task<JArray> Query(string json)
 		{

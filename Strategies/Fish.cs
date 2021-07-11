@@ -22,7 +22,6 @@ namespace Lily.Strategies
         private string _currentQuestion;
         private string _currentAnswer;
         private string _gameType;
-        private bool _lilyAlreadyKnew;
         private IEnumerable<string> _suggested;
         private Task _spamTask;
 
@@ -46,10 +45,8 @@ namespace Lily.Strategies
                     _currentQuestion = sentence.Substring(1, sentence.Length - 2);
                     _currentQuestion = _currentQuestion.Replace(" _", "[a-zA-Z*]");
                     // There is a chance that Dank Memer doesn't give you the answer.
-                    _learning.FeedSentence("fish", _currentQuestion);
-                    var result = await _learning.QuerySentenceAsync("fish", _currentQuestion);
-                    _lilyAlreadyKnew = result.IsFromCloud;
-                    _suggested = result.Results;
+                    _ = _learning.FeedSentence("fish", _currentQuestion);
+                    _suggested = await _learning.QuerySentenceAsync("fish", _currentQuestion);
                     _spamTask = SpamSuggestedAsync();
                 }
                 else if (content.Contains("unscramble"))
@@ -58,9 +55,7 @@ namespace Lily.Strategies
                     _gameType = "unscramble";
                     var word = Regex.Match(content, "`[^`]*`").Value;
                     _currentQuestion = word.Substring(1, word.Length - 2);
-                    var result = await _learning.QueryUnscrambleAsync("fish", _currentQuestion);
-                    _lilyAlreadyKnew = result.IsFromCloud;
-                    _suggested = result.Results;
+                    _suggested = await _learning.QueryUnscrambleAsync("fish", _currentQuestion);
                     _spamTask = SpamSuggestedAsync();
                 }
                 else if (content.Contains("re-type"))
@@ -71,8 +66,8 @@ namespace Lily.Strategies
                     {
                         var sentence = Regex.Match(content, "Type `([^`]*)`").Groups[1].Value;
                         sentence = Regex.Replace(sentence, @"[^\u0000-\u007F]+", string.Empty);
-                        _learning.FeedSentenceAnswer("fish", sentence, "");
-                        _learning.FeedSentence("fish", sentence);
+                        _ = _learning.FeedSentenceAnswer("fish", sentence, "");
+                        _ = _learning.FeedSentence("fish", sentence);
                     }
                     catch (Exception e)
                     {
@@ -88,16 +83,13 @@ namespace Lily.Strategies
                 // This indicates success.
                 if (_isInGame)
                 {
-                    if (!_lilyAlreadyKnew)
+                    if (_gameType == "hangman")
                     {
-                        if (_gameType == "hangman")
-                        {
-                            _learning.FeedSentenceAnswer("fish", _currentQuestion, _currentAnswer);
-                        }
-                        else if (_gameType == "unscramble")
-                        {
-                            _learning.FeedScrambledWordAnswer("fish", _currentQuestion, _currentAnswer);
-                        }
+                        _ = _learning.FeedSentenceAnswer("fish", _currentQuestion, _currentAnswer);
+                    }
+                    else if (_gameType == "unscramble")
+                    {
+                        _ = _learning.FeedScrambledWordAnswer("fish", _currentQuestion, _currentAnswer);
                     }
                 }
                 _isInGame = false;
@@ -112,11 +104,11 @@ namespace Lily.Strategies
                 _currentAnswer = _currentAnswer.Substring(1, _currentAnswer.Length - 2);
                 if (_gameType == "hangman")
                 {
-                    _learning.FeedSentenceAnswer("fish", _currentQuestion, _currentAnswer);
+                    _ = _learning.FeedSentenceAnswer("fish", _currentQuestion, _currentAnswer);
                 }
                 else if (_gameType == "unscramble")
                 {
-                    _learning.FeedScrambledWordAnswer("fish", _currentQuestion, _currentAnswer);
+                    _ = _learning.FeedScrambledWordAnswer("fish", _currentQuestion, _currentAnswer);
                 }
             }
 

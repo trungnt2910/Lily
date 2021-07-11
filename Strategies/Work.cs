@@ -50,12 +50,12 @@ namespace Lily.Strategies
 					if (_mode == "Hangman")
 					{
 						var answer = Regex.Match(description, "`([^`]*)`").Groups[1].Value;
-						_learning.FeedSentenceAnswer(_context, _currentQuestion, answer);
+						_ =_learning.FeedSentenceAnswer(_context, _currentQuestion, answer);
 					}
 					if (_mode == "Scramble")
 					{
 						var answer = Regex.Match(description, "`([^`]*)`").Groups[1].Value;
-						_learning.FeedScrambledWordAnswer(_context, _currentQuestion, answer);
+						_ = _learning.FeedScrambledWordAnswer(_context, _currentQuestion, answer);
 					}
 				}
 				if (description.Contains("Great work!"))
@@ -63,11 +63,11 @@ namespace Lily.Strategies
 					Console.Error.WriteLine("[Debug]: Successful working attempt");
 					if (_mode == "Hangman")
 					{
-						_learning.FeedSentenceAnswer(_context, _currentQuestion, _currentAnswer);
+						_ = _learning.FeedSentenceAnswer(_context, _currentQuestion, _currentAnswer);
 					}
 					if (_mode == "Scramble")
 					{
-						_learning.FeedScrambledWordAnswer(_context, _currentQuestion, _currentAnswer);
+						_ = _learning.FeedScrambledWordAnswer(_context, _currentQuestion, _currentAnswer);
 					}
 					_cts.Cancel();
 					_tcs.SetResult(null);
@@ -84,12 +84,12 @@ namespace Lily.Strategies
 				if (_mode == "Hangman")
 				{
 					var answer = Regex.Match(content, "`([^`]*)`").Groups[1].Value;
-					_learning.FeedSentenceAnswer(_context, _currentQuestion, answer);
+					_ = _learning.FeedSentenceAnswer(_context, _currentQuestion, answer);
 				}
 				if (_mode == "Scramble")
 				{
 					var answer = Regex.Match(content, "`([^`]*)`").Groups[1].Value;
-					_learning.FeedScrambledWordAnswer(_context, _currentQuestion, answer);
+					_ = _learning.FeedScrambledWordAnswer(_context, _currentQuestion, answer);
 				}
 			}
 			if (content.Contains("Great work!"))
@@ -97,11 +97,11 @@ namespace Lily.Strategies
 				Console.Error.WriteLine("[Debug]: Successful working attempt");
 				if (_mode == "Hangman")
 				{
-					_learning.FeedSentenceAnswer(_context, _currentQuestion, _currentAnswer);
+					_ = _learning.FeedSentenceAnswer(_context, _currentQuestion, _currentAnswer);
 				}
 				if (_mode == "Scramble")
 				{
-					_learning.FeedScrambledWordAnswer(_context, _currentQuestion, _currentAnswer);
+					_ = _learning.FeedScrambledWordAnswer(_context, _currentQuestion, _currentAnswer);
 				}
 				_cts.Cancel();
 				_tcs.SetResult(null);
@@ -296,8 +296,7 @@ namespace Lily.Strategies
 		{
 			_currentQuestion = Regex.Match(_content, "`([^`]*)`").Groups[1].Value;
 			_currentQuestion = _currentQuestion.Replace(" _", "[a-zA-Z*]");
-			var queryResult = await _learning.QuerySentenceAsync(_context, _currentQuestion);
-			var results = queryResult.Results;
+			var results = await _learning.QuerySentenceAsync(_context, _currentQuestion);
 			foreach (var result in results)
 			{
 				if (_token.IsCancellationRequested)
@@ -314,8 +313,7 @@ namespace Lily.Strategies
 		private async Task PlayUnscrambleAsync()
 		{
 			_currentQuestion = Regex.Match(_content, "`([^`]*)`").Groups[1].Value;
-			var queryResult = await _learning.QueryUnscrambleAsync(_context, _currentQuestion);
-			var results = queryResult.Results;
+			var results = await _learning.QueryUnscrambleAsync(_context, _currentQuestion);
 			foreach (var result in results)
 			{
 				if (_token.IsCancellationRequested)
@@ -331,37 +329,31 @@ namespace Lily.Strategies
 
 		private async Task FeedSentenceAsync()
 		{
-			await Task.Run(() => 
+			var matches = Regex.Matches(_content, "`[^`]*`");
+			foreach (Match match in matches)
 			{
-				var matches = Regex.Matches(_content, "`[^`]*`");
-				foreach (Match match in matches)
-				{
-					var toType = match.Value;
-					toType = toType.Substring(1, toType.Length - 2);
-					toType = Purify(toType);
-					_learning.FeedSentenceAnswer(_context, toType, "");
-				}
-			});
+				var toType = match.Value;
+				toType = toType.Substring(1, toType.Length - 2);
+				toType = Purify(toType);
+				await _learning.FeedSentenceAnswer(_context, toType, "");
+			}
 		}
 
 		private async Task FeedWordsAsync(string content)
 		{
-			await Task.Run(() => 
+			var matches = Regex.Matches(content, "`[^`]*`");
+			var wordList = new List<string>();
+			foreach (Match match in matches)
 			{
-				var matches = Regex.Matches(content, "`[^`]*`");
-				var wordList = new List<string>();
-				foreach (Match match in matches)
-				{
-					var toType = match.Value;
-					toType = toType.Substring(1, toType.Length - 2);
-					toType = Purify(toType);
-					wordList.AddRange(toType.Split("\n"));
-				}
-				foreach (var word in wordList)
-				{
-					_learning.FeedScrambledWordAnswer(_context, word, word);
-				}
-			});
+				var toType = match.Value;
+				toType = toType.Substring(1, toType.Length - 2);
+				toType = Purify(toType);
+				wordList.AddRange(toType.Split("\n"));
+			}
+			foreach (var word in wordList)
+			{
+				await _learning.FeedScrambledWordAnswer(_context, word, word);
+			}
 		}
 
 		// Removes trap characters.
