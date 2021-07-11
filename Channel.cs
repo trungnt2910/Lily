@@ -355,9 +355,6 @@ retry:      await FakeTyping();
                 }
 
                 var str = await response.Content.ReadAsStringAsync();
-
-                Debug.WriteLine(str);
-
                 return JsonConvert.DeserializeObject<JArray>(str);
             }
         }

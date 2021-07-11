@@ -62,7 +62,7 @@ namespace Lily
 				realWord = realWord.ToLower();
 				Console.WriteLine($"[Debug]: Sending word {realWord} with context {context}");
 				var text = JsonConvert.SerializeObject(new {doc = new {word = realWord, category = "hangman_word_framgents", context = context}});
-				Console.WriteLine($"[Debug]: {text}");
+				Debug.FileWriteLine(text);
 				await Feed(text);
 			}
 		}
@@ -89,7 +89,7 @@ namespace Lily
 				}
 			}
 			var text = JsonConvert.SerializeObject(new {doc = new {question = sentence, answer = word, category = "hangman", context = context}});
-			Console.WriteLine($"[Debug]: {text}");
+			Debug.FileWriteLine(text);
 			await Feed(text);
 		}
 
@@ -105,7 +105,7 @@ namespace Lily
 			Console.WriteLine($"[Lily]: I'll remember that {scrambled} is actually {unscrambled}, no need to look up my dictionary now.");
 			scrambled = Sort(scrambled);
 			var text = JsonConvert.SerializeObject(new {doc = new {question = scrambled, answer = unscrambled, category = "unscramble", context = context}});
-			Console.WriteLine($"[Debug]: {text}");
+			Debug.FileWriteLine(text);
 			await Feed(text);
 		}
 
