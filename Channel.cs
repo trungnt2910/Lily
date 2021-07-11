@@ -148,7 +148,7 @@ namespace Lily
         /// <returns></returns>
         public async Task<string> SendMessageRawAsync(string content, bool retry = false)
         {
-            await FakeTyping();
+retry:      await FakeTyping();
 
             var request = new HttpRequestMessage();
             request.RequestUri = new Uri($"https://discord.com/api/v9/channels/{ChannelId}/messages");
@@ -167,7 +167,18 @@ namespace Lily
             var nonce = _nonce++;
             request.Content = new StringContent(JsonConvert.SerializeObject(new { content = content, nonce = nonce.ToString(), tts = false }), Encoding.UTF8, "application/json");
 
-            var response = await _client.SendAsync(request);
+            HttpResponseMessage response;
+
+            try
+            {
+                response = await _client.SendAsync(request);
+            }
+            catch (HttpRequestException)
+            {
+                // To-Do: Make it a while loop. I'm in a hurry.
+                goto retry;
+            }
+
 
             var text = await response.Content.ReadAsStringAsync();
             var data = JsonConvert.DeserializeObject<JObject>(text);
@@ -319,28 +330,36 @@ namespace Lily
 
         private async Task<JArray> FetchMessageAsync(string id)
         {
-            var request = new HttpRequestMessage();
-            request.RequestUri = new Uri($"https://discord.com/api/v9/channels/{ChannelId}/messages?limit=1&around={id}");
-            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("*/*"));
-            request.Headers.AcceptLanguage.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("en-US"));
-            request.Headers.Authorization = System.Net.Http.Headers.AuthenticationHeaderValue.Parse(Token);
-            request.Headers.Add("sec-ch-ua", "\" Not;A Brand\";v=\"99\", \"Microsoft Edge\";v=\"91\", \"Chromium\";v=\"91\"");
-            request.Headers.Add("sec-ch-ua-mobile", "?0");
-            request.Headers.Add("sec-fetch-dest", "empty");
-            request.Headers.Add("sec-fetch-mode", "cors");
-            request.Headers.Add("sec-fetch-site", "same-origin");
-            request.Headers.Add("x-super-properties", "eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzkxLjAuNDQ3Mi4xMTQgU2FmYXJpLzUzNy4zNiBFZGcvOTEuMC44NjQuNTkiLCJicm93c2VyX3ZlcnNpb24iOiI5MS4wLjQ0NzIuMTE0Iiwib3NfdmVyc2lvbiI6IjEwIiwicmVmZXJyZXIiOiJodHRwczovL2Rpc2NvcmQuY29tLyIsInJlZmVycmluZ19kb21haW4iOiJkaXNjb3JkLmNvbSIsInJlZmVycmVyX2N1cnJlbnQiOiIiLCJyZWZlcnJpbmdfZG9tYWluX2N1cnJlbnQiOiIiLCJyZWxlYXNlX2NoYW5uZWwiOiJzdGFibGUiLCJjbGllbnRfYnVpbGRfbnVtYmVyIjo4OTEyOSwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=");
-            request.Headers.Referrer = new Uri($"https://discord.com/channels/{ServerId}/{ChannelId}/{id}");
-            request.Method = HttpMethod.Get;
+            while (true)
+            {
+                var request = new HttpRequestMessage();
+                request.RequestUri = new Uri($"https://discord.com/api/v9/channels/{ChannelId}/messages?limit=1&around={id}");
+                request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("*/*"));
+                request.Headers.AcceptLanguage.Add(new System.Net.Http.Headers.StringWithQualityHeaderValue("en-US"));
+                request.Headers.Authorization = System.Net.Http.Headers.AuthenticationHeaderValue.Parse(Token);
+                request.Headers.Add("sec-ch-ua", "\" Not;A Brand\";v=\"99\", \"Microsoft Edge\";v=\"91\", \"Chromium\";v=\"91\"");
+                request.Headers.Add("sec-ch-ua-mobile", "?0");
+                request.Headers.Add("sec-fetch-dest", "empty");
+                request.Headers.Add("sec-fetch-mode", "cors");
+                request.Headers.Add("sec-fetch-site", "same-origin");
+                request.Headers.Add("x-super-properties", "eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzkxLjAuNDQ3Mi4xMTQgU2FmYXJpLzUzNy4zNiBFZGcvOTEuMC44NjQuNTkiLCJicm93c2VyX3ZlcnNpb24iOiI5MS4wLjQ0NzIuMTE0Iiwib3NfdmVyc2lvbiI6IjEwIiwicmVmZXJyZXIiOiJodHRwczovL2Rpc2NvcmQuY29tLyIsInJlZmVycmluZ19kb21haW4iOiJkaXNjb3JkLmNvbSIsInJlZmVycmVyX2N1cnJlbnQiOiIiLCJyZWZlcnJpbmdfZG9tYWluX2N1cnJlbnQiOiIiLCJyZWxlYXNlX2NoYW5uZWwiOiJzdGFibGUiLCJjbGllbnRfYnVpbGRfbnVtYmVyIjo4OTEyOSwiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=");
+                request.Headers.Referrer = new Uri($"https://discord.com/channels/{ServerId}/{ChannelId}/{id}");
+                request.Method = HttpMethod.Get;
 
-            var response = await _client.SendAsync(request);
-            response.EnsureSuccessStatusCode();
+                var response = await _client.SendAsync(request);
 
-            var str = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.Error.WriteLine($"[Debug]: Failed to fetch message {id}: {response.StatusCode}");
+                    continue;
+                }
 
-            Debug.WriteLine(str);
+                var str = await response.Content.ReadAsStringAsync();
 
-            return JsonConvert.DeserializeObject<JArray>(str);
+                Debug.WriteLine(str);
+
+                return JsonConvert.DeserializeObject<JArray>(str);
+            }
         }
 
         private Timer Heartbeat(int milliseconds)
