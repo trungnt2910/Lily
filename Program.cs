@@ -39,6 +39,9 @@ namespace Lily
             Thread.Sleep(10000);
             engine.AddStrategy(new Hunt());
             Thread.Sleep(10000);
+            // Experimental
+            engine.AddStrategy(new Dig(machineLearning));
+            Thread.Sleep(10000);
             engine.AddStrategy(new Highlow());
             Thread.Sleep(10000);
             engine.AddStrategy(new Deposit());
