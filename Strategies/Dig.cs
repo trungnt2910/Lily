@@ -35,7 +35,7 @@ namespace Lily.Strategies
                 return;
             }
 
-            if (content.Contains("the fish is too strong!"))
+            if (content.Contains("uncover what's in the dirt"))
             {
                 if (content.Contains("missing word"))
                 {
@@ -113,7 +113,7 @@ namespace Lily.Strategies
             }
 
             if (    content.Contains("The thing in the ground was WAY too strong") ||
-                    content.Contains("the massive fish got away, you suck at this and should consider a life of crime instead"))
+                    content.Contains("Whatever was in the ground seems to be gone now"))
             {
                 Console.Error.WriteLine("[Debug]: Failed digging attempt.");
                 _isInGame = false;
