@@ -32,7 +32,7 @@ namespace Lily.Strategies
 			_learning = learning;
 		}
 
-		public override void OnMessageReceive(object sender, MessageReceiveEventArgs e)
+		public override async void OnMessageReceive(object sender, MessageReceiveEventArgs e)
 		{
 			e.Deferral.Lock();
 			// Work result
@@ -130,6 +130,12 @@ namespace Lily.Strategies
 				Console.Error.WriteLine("[Debug]: Not time to work yet!");
 				_workTask = Task.CompletedTask;
 				_tcs.TrySetResult(null);
+			}
+
+			if (content.Contains("You never fail to amaze me"))
+			{
+				Debug.WriteLine("Promoted");
+				await _control.SendMessageAsync(Command);
 			}
 
 			// Work task.
