@@ -251,6 +251,8 @@ retry:      await FakeTyping();
                 if (_haltQueue != 0)
                 {
                     Console.Error.WriteLine("[Debug]: Queue halted.");
+                    _queueRunning = false;
+                    return;
                 }    
                 if (_controlRequestQueue.TryDequeue(out var tcs))
                 {
