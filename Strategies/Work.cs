@@ -42,35 +42,38 @@ namespace Lily.Strategies
 			foreach (var embed in embeds)
 			{
 				var description = embed.Value<string>("description");
-				if (description.Contains("TERRIBLE work!"))
+				if (description != null)
 				{
-					Console.Error.WriteLine("[Debug]: Failed working attempt");
-					_cts.Cancel();
-					_tcs.TrySetResult(null);
-					if (_mode == "Hangman")
+					if (description.Contains("TERRIBLE work!"))
 					{
-						var answer = Regex.Match(description, "`([^`]*)`").Groups[1].Value;
-						_ =_learning.FeedSentenceAnswer(_context, _currentQuestion, answer);
+						Console.Error.WriteLine("[Debug]: Failed working attempt");
+						_cts.Cancel();
+						_tcs.TrySetResult(null);
+						if (_mode == "Hangman")
+						{
+							var answer = Regex.Match(description, "`([^`]*)`").Groups[1].Value;
+							_ =_learning.FeedSentenceAnswer(_context, _currentQuestion, answer);
+						}
+						if (_mode == "Scramble")
+						{
+							var answer = Regex.Match(description, "`([^`]*)`").Groups[1].Value;
+							_ = _learning.FeedScrambledWordAnswer(_context, _currentQuestion, answer);
+						}
 					}
-					if (_mode == "Scramble")
+					if (description.Contains("Great work!"))
 					{
-						var answer = Regex.Match(description, "`([^`]*)`").Groups[1].Value;
-						_ = _learning.FeedScrambledWordAnswer(_context, _currentQuestion, answer);
+						Console.Error.WriteLine("[Debug]: Successful working attempt");
+						if (_mode == "Hangman")
+						{
+							_ = _learning.FeedSentenceAnswer(_context, _currentQuestion, _currentAnswer);
+						}
+						if (_mode == "Scramble")
+						{
+							_ = _learning.FeedScrambledWordAnswer(_context, _currentQuestion, _currentAnswer);
+						}
+						_cts.Cancel();
+						_tcs.TrySetResult(null);
 					}
-				}
-				if (description.Contains("Great work!"))
-				{
-					Console.Error.WriteLine("[Debug]: Successful working attempt");
-					if (_mode == "Hangman")
-					{
-						_ = _learning.FeedSentenceAnswer(_context, _currentQuestion, _currentAnswer);
-					}
-					if (_mode == "Scramble")
-					{
-						_ = _learning.FeedScrambledWordAnswer(_context, _currentQuestion, _currentAnswer);
-					}
-					_cts.Cancel();
-					_tcs.TrySetResult(null);
 				}
 			}
 
