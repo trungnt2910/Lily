@@ -283,6 +283,7 @@ retry:      await FakeTyping();
                     Console.Error.WriteLine("[Debug]: Other owner released.");
                     _control.Invalidate();
                     Console.Error.WriteLine("[Debug]: Controller reset.");
+                    await Task.Delay(1000);
                     lock (_control)
                     {
                         _control = new ChannelControl(this);
