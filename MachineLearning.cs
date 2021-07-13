@@ -12,13 +12,13 @@ namespace Lily
 {
 	public class MachineLearning
 	{
-		private class PrivateRegex
+		private class EnclosedRegex
 		{
 			[JsonProperty(PropertyName = "$regex")]
 			public string Regex { get; set; }
-			public PrivateRegex(string s)
+			public EnclosedRegex(string s)
 			{
-				Regex = s;
+				Regex = $"^{s}$";
 			}
 		}
 		// To contributors, and to GitHub:
@@ -50,16 +50,7 @@ namespace Lily
 				{
 					continue;
 				}
-				var realWord = string.Empty;
-				if (".!?".Contains(word[word.Length - 1]))
-				{
-					realWord = word.Substring(0, word.Length - 1);
-				}
-				else 
-				{
-					realWord = word;
-				}
-				realWord = realWord.ToLower();
+				var realWord = word.TrimPunctuation().ToLower();
 				Console.WriteLine($"[Debug]: Sending word {realWord} with context {context}");
 				var text = JsonConvert.SerializeObject(new {doc = new {word = realWord, category = "hangman_word_framgents", context = context}});
 				Debug.FileWriteLine(text);
@@ -93,17 +84,12 @@ namespace Lily
 			await Feed(text);
 		}
 
-		private string Sort(string str)
-		{	
-			var arr = str.ToCharArray();
-			Array.Sort(arr);
-			return new string(arr);
-		}
+
 
 		public async Task FeedScrambledWordAnswer(string context, string scrambled, string unscrambled)
 		{
 			Console.WriteLine($"[Lily]: I'll remember that {scrambled} is actually {unscrambled}, no need to look up my dictionary now.");
-			scrambled = Sort(scrambled);
+			scrambled = scrambled.Sort();
 			var text = JsonConvert.SerializeObject(new {doc = new {question = scrambled, answer = unscrambled, category = "unscramble", context = context}});
 			Debug.FileWriteLine(text);
 			await Feed(text);
@@ -167,9 +153,9 @@ namespace Lily
 			{
 				query = new 
 				{
-					question = new PrivateRegex(content), 
-					category = new PrivateRegex("hangman"), 
-					context = new PrivateRegex(context)
+					question = new EnclosedRegex(content), 
+					category = new EnclosedRegex("hangman"), 
+					context = new EnclosedRegex(context)
 				}
 			}));
 
@@ -184,18 +170,17 @@ namespace Lily
 			Console.WriteLine($"[Lily]: Checking my flashcards, please wait.");
 
 			var contents = content.Split();
-			content = contents.FirstOrDefault(str => str.Contains("["));
-			if ("!?.".Contains(content[content.Length - 1]))
-			{
-				content = content.Substring(0, content.Length - 1);
-			}
+			content = contents	
+							.FirstOrDefault(str => str.Contains("["))
+							.TrimPunctuation()
+							.ToLower();
 			var arr = await Query(JsonConvert.SerializeObject(new 
 			{
 				query = new 
 				{
-					word = new PrivateRegex(content), 
-					category = new PrivateRegex("hangman_word_framgents"), 
-					context = new PrivateRegex(context)
+					word = new EnclosedRegex(content), 
+					category = new EnclosedRegex("hangman_word_framgents"), 
+					context = new EnclosedRegex(context)
 				}
 			}));
 			return arr.Select(token => token.Value<string>("answer")?.Trim())
@@ -223,9 +208,9 @@ namespace Lily
 				{
 					query = new 
 					{
-						question = new PrivateRegex(Sort(scrambled)), 
-						category = new PrivateRegex("unscramble"), 
-						context = new PrivateRegex(context)
+						question = new EnclosedRegex(scrambled.Sort()), 
+						category = new EnclosedRegex("unscramble"), 
+						context = new EnclosedRegex(context)
 					}
 				}));
 
