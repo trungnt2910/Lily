@@ -81,7 +81,7 @@ namespace Lily
         private async Task SetupWebSocketAsync()
         {
             _ws = new WebSocket("wss://gateway.discord.gg/?v=6&encoding=json");
-            TaskCompletionSource<object> _tcs = new TaskCompletionSource<object>();
+            var tcs = new TaskCompletionSource<bool>();
 
             // Setup WebSocket
             _ws.OnOpen += (sender, args) =>
@@ -104,7 +104,19 @@ namespace Lily
                 };
                 var data = JsonConvert.SerializeObject(payload);
                 _ws.Send(data);
-                _tcs.SetResult(null);
+                tcs?.TrySetResult(true);
+            };
+
+            _ws.Log.Output += (logData, file) => 
+            {
+                // Sometimes, an exception is logged, but no events are raised.
+                // This makes sure that any Error or Fatal exceptions are handled.
+                Debug.WriteLine($"{logData.Level}: {logData.Message}");
+                if (logData.Level >= LogLevel.Error)
+                {
+                    tcs?.TrySetResult(false);
+                    WebSocket_OnError(_ws, null);
+                }
             };
 
             _ws.OnMessage += MessageReceived;
@@ -112,12 +124,15 @@ namespace Lily
             _ws.OnError += WebSocket_OnError;
 
             _ws.Connect();
-            await _tcs.Task;
-
-            await PingAsync();
+            
+            if (await tcs.Task)
+            {
+                tcs = null;
+                await PingAsync();
+            }
         }
 
-        public async Task PingAsync()
+        public async Task PingAsync(int timeout = 10000)
         {
             var tcs = new TaskCompletionSource<object>();
             var testMessage = $"Hi! Lily's here. Here's my number: {_rand.Next()}";
@@ -138,7 +153,12 @@ namespace Lily
                 }
             }
 
-            await tcs.Task;
+            var task = await Task.WhenAny(tcs.Task, Task.Delay(timeout));
+
+            if (task != tcs.Task)
+            {
+                WebSocket_OnError(this, null);
+            }
         }
 
         public async void WebSocket_OnError(object sender, ErrorEventArgs args)
@@ -161,6 +181,8 @@ namespace Lily
             _ws.OnMessage -= MessageReceived;
             _ws.OnError -= WebSocket_OnError;
 
+            // We don't want to retry constantly. This will only gives us a stack overflow error.
+            await Task.Delay(2000);
             await SetupWebSocketAsync();
             --_haltQueue;
             Console.Error.WriteLine("[Debug]: Control request queue resumed.");
