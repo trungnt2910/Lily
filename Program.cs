@@ -1,5 +1,6 @@
 ﻿using Lily.Strategies;
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -42,6 +43,19 @@ namespace Lily
             // Experimental
             engine.AddStrategy(new Dig(machineLearning));
             Thread.Sleep(10000);
+            engine.AddStrategy(new Trivia());
+            Thread.Sleep(10000);
+
+            // Guess the number game is really time
+            // consuming and inefficient. Should only 
+            // be enabled when aiming for 1000 wins to get
+            // the multiplier.
+            if (args.Contains("--enable-guess"))
+            {
+                engine.AddStrategy(new Guess());
+                Thread.Sleep(10000);
+            }
+
             engine.AddStrategy(new Highlow());
             Thread.Sleep(10000);
             engine.AddStrategy(new Deposit());

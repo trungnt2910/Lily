@@ -53,6 +53,7 @@ namespace Lily
         private ChannelControl _control;
         private Timer _timer;
         private Random _rand = new Random();
+        private string _sessionId;
 
         public Channel(string url, string token)
         {
@@ -97,8 +98,23 @@ namespace Lily
                         {
                             // Only exists in your dreams...
                             { "$os",  "Windows 11 Mobile" },
-                            { "$browser", "edge" },
+                            // Windows 11 Mobile running Android apps!
+                            { "$browser", "Discord Android" },
                             { "$device", "surfacephone" }
+                        },
+                        presence = new
+                        {
+                            activities = new object[]
+                            {
+                                new
+                                {
+                                    name = "Lily the Dank Player",
+                                    type = 3,
+                                    browser = "Discord Android"
+                                }
+                            },
+                            status = "online",
+                            afk = false
                         }
                     }
                 };
@@ -327,11 +343,12 @@ retry:      await FakeTyping();
 
             var op = payload.Value<int>("op");
             var t = payload.Value<string>("t");
+            var d = payload["d"];
 
             switch (op)
             {
                 case 10:
-                    var heartbeatInterval = payload["d"].Value<int>("heartbeat_interval");
+                    var heartbeatInterval = d.Value<int>("heartbeat_interval");
                     Console.Error.WriteLine($"[Debug]: Channel connected to WebSocket, pinging every {heartbeatInterval} ms");
                     _timer = Heartbeat(heartbeatInterval);
                 break;
@@ -339,10 +356,16 @@ retry:      await FakeTyping();
 
             switch (t)
             {
+                case "READY":
+                {
+                    _sessionId = d.Value<string>("session_id");
+                    Debug.WriteLine(_sessionId);
+                }
+                break;
                 case "MESSAGE_CREATE":
                 {
-                    var id = payload["d"].Value<string>("id");
-                    var channelId = payload["d"].Value<string>("channel_id");
+                    var id = d.Value<string>("id");
+                    var channelId = d.Value<string>("channel_id");
                     if (channelId != ChannelId) break;
                     var trueMessage = (await FetchMessageAsync(id))[0];
                     var author = trueMessage["author"].Value<string>("username");
@@ -367,8 +390,8 @@ retry:      await FakeTyping();
                 break;
     			case "MESSAGE_UPDATE":
 				{
-					var id = payload["d"].Value<string>("id");
-                    var channelId = payload["d"].Value<string>("channel_id");
+					var id = d.Value<string>("id");
+                    var channelId = d.Value<string>("channel_id");
                     if (channelId != ChannelId) break;
                     var trueMessage = (await FetchMessageAsync(id))[0];
                     lock (_control)
